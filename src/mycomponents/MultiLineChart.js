@@ -124,15 +124,9 @@ const MultiLineChart = () => {
                   itemBackground: 'rgba(0, 0, 0, .03)',
                   itemOpacity: 1
                 }
-              },
-              {
-                on: 'click',
-                style: {
-                  itemOpacity: 1
-                },
-                toggleSerie: true // This enables the toggling functionality
               }
-            ]
+            ],
+            toggleSerie: true
           }
         ]}
       />
