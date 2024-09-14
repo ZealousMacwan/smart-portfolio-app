@@ -9,9 +9,11 @@ const MultiLineChart = () => {
   const [visibleData, setVisibleData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [zoomLevel, setZoomLevel] = useState(1); // 1 = no zoom
+  const [zoomLevel, setZoomLevel] = useState(10); // Number of points to show (default is 10)
   const [panOffset, setPanOffset] = useState(0); // Offset for panning
   const [isDragging, setIsDragging] = useState(false); // State to track dragging
+
+  const minPoints = 3; // Minimum visible points
 
   useEffect(() => {
     const fetchData = async () => {
@@ -68,9 +70,12 @@ const MultiLineChart = () => {
   const updateVisibleData = useCallback(() => {
     if (data.length === 0) return;
 
-    // Calculate visible data based on panOffset and zoomLevel
-    const rangeStart = Math.max(0, Math.floor(panOffset / zoomLevel));
-    const rangeEnd = Math.min(data[0]?.data.length, Math.ceil((panOffset + 1000) / zoomLevel)); // Adjust based on width of chart
+    const totalPoints = data[0]?.data.length;
+    const pointsToShow = Math.max(minPoints, Math.min(totalPoints, zoomLevel));
+
+    // Calculate the visible data range based on panOffset and pointsToShow
+    const rangeStart = Math.max(0, Math.floor(panOffset));
+    const rangeEnd = Math.min(totalPoints, Math.ceil(panOffset + pointsToShow));
 
     const updatedData = data.map(series => ({
       ...series,
@@ -78,24 +83,40 @@ const MultiLineChart = () => {
     }));
 
     setVisibleData(updatedData);
-  }, [data, panOffset, zoomLevel]);
+  }, [data, panOffset, zoomLevel, minPoints]);
 
   useEffect(() => {
     updateVisibleData();
   }, [updateVisibleData]);
 
-  const handlePan = (dx) => {
+  const handlePan = (direction) => {
+    const pointsToShow = Math.max(minPoints, Math.min(data[0]?.data.length, zoomLevel));
+    const panStep = direction === 'left' ? -1 : 1;
+
     setPanOffset(prevOffset => {
-      const newOffset = prevOffset - dx; // Inverse direction for panning
+      const newOffset = Math.max(0, Math.min(data[0]?.data.length - pointsToShow, prevOffset + panStep));
       updateVisibleData();
       return newOffset;
     });
   };
 
-  const handleZoom = (zoomFactor) => {
+  const handleZoom = (zoomDirection) => {
     setZoomLevel(prevZoom => {
-      const newZoom = Math.max(1, prevZoom * zoomFactor);
-      updateVisibleData();
+      const newZoom = zoomDirection === 'in' 
+        ? Math.max(minPoints, prevZoom - 1) 
+        : Math.min(data[0]?.data.length, prevZoom + 1);
+
+      setPanOffset(prevOffset => {
+        const totalPoints = data[0]?.data.length;
+        const pointsToShow = Math.max(minPoints, Math.min(totalPoints, newZoom));
+
+        // Adjust panOffset to ensure it stays within bounds
+        const newOffset = Math.min(prevOffset, totalPoints - pointsToShow);
+        
+        updateVisibleData();
+        return newOffset;
+      });
+
       return newZoom;
     });
   };
@@ -104,18 +125,18 @@ const MultiLineChart = () => {
     event.preventDefault(); // Prevent default scroll behavior
 
     // Determine zoom direction based on scroll direction
-    const zoomFactor = event.deltaY < 0 ? 1.2 : 0.8;
-    handleZoom(zoomFactor);
+    const zoomDirection = event.deltaY < 0 ? 'in' : 'out';
+    handleZoom(zoomDirection);
   };
 
-  const handleMouseDown = () => {
+  const handleMouseDown = (event) => {
     setIsDragging(true);
   };
 
   const handleMouseMove = (event) => {
     if (isDragging) {
       const dx = event.movementX;
-      handlePan(dx);
+      handlePan(dx > 0 ? 'right' : 'left');
     }
   };
 
@@ -210,10 +231,10 @@ const MultiLineChart = () => {
         ]}
       />
       {/* Add controls for panning and zooming */}
-      <button onClick={() => handlePan(-100)}>Pan Left</button>
-      <button onClick={() => handlePan(100)}>Pan Right</button>
-      <button onClick={() => handleZoom(1.2)}>Zoom In</button>
-      <button onClick={() => handleZoom(0.8)}>Zoom Out</button>
+      <button onClick={() => handlePan('left')}>Pan Left</button>
+      <button onClick={() => handlePan('right')}>Pan Right</button>
+      <button onClick={() => handleZoom('in')}>Zoom In</button>
+      <button onClick={() => handleZoom('out')}>Zoom Out</button>
     </div>
   );
 };
