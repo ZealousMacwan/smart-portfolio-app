@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { ResponsiveLine } from '@nivo/line';
 import { format } from 'date-fns';
-import './MultiLineChart.css'; // Add this import for CSS
+import './MultiLineChart.css'; // Ensure this CSS file exists and is correctly styled
 
 const MultiLineChart = () => {
   const [data, setData] = useState([]);
+  const [visibleData, setVisibleData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [zoomLevel, setZoomLevel] = useState(1); // 1 = no zoom
+  const [panOffset, setPanOffset] = useState(0); // Offset for panning
 
   useEffect(() => {
     const fetchData = async () => {
@@ -49,8 +52,10 @@ const MultiLineChart = () => {
         ];
 
         setData(transformedData);
+        setVisibleData(transformedData); // Initially, show all data
         setLoading(false);
       } catch (error) {
+        console.error('Error fetching data:', error); // Log error
         setError(error);
         setLoading(false);
       }
@@ -59,13 +64,46 @@ const MultiLineChart = () => {
     fetchData();
   }, []);
 
+  const updateVisibleData = useCallback(() => {
+    // Calculate visible data based on panOffset and zoomLevel
+    const rangeStart = Math.max(0, Math.floor(panOffset / zoomLevel));
+    const rangeEnd = Math.min(data[0]?.data.length, Math.ceil((panOffset + 1000) / zoomLevel)); // Adjust based on width of chart
+
+    const updatedData = data.map(series => ({
+      ...series,
+      data: series.data.slice(rangeStart, rangeEnd),
+    }));
+
+    setVisibleData(updatedData);
+  }, [data, panOffset, zoomLevel]);
+
+  useEffect(() => {
+    updateVisibleData();
+  }, [updateVisibleData]);
+
+  const handlePan = (dx) => {
+    setPanOffset(prevOffset => {
+      const newOffset = prevOffset + dx;
+      updateVisibleData();
+      return newOffset;
+    });
+  };
+
+  const handleZoom = (zoomFactor) => {
+    setZoomLevel(prevZoom => {
+      const newZoom = Math.max(1, prevZoom * zoomFactor);
+      updateVisibleData();
+      return newZoom;
+    });
+  };
+
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
 
   return (
-    <div className="chart-container">
+    <div className="chart-container" style={{ height: '500px', width: '100%' }}>
       <ResponsiveLine
-        data={data}
+        data={visibleData}
         margin={{ top: 50, right: 110, bottom: 50, left: 60 }}
         xScale={{ type: 'point' }}
         yScale={{
@@ -130,6 +168,11 @@ const MultiLineChart = () => {
           }
         ]}
       />
+      {/* Add controls for panning and zooming */}
+      <button onClick={() => handlePan(-100)}>Pan Left</button>
+      <button onClick={() => handlePan(100)}>Pan Right</button>
+      <button onClick={() => handleZoom(1.2)}>Zoom In</button>
+      <button onClick={() => handleZoom(0.8)}>Zoom Out</button>
     </div>
   );
 };
