@@ -11,6 +11,7 @@ const MultiLineChart = () => {
   const [error, setError] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(1); // 1 = no zoom
   const [panOffset, setPanOffset] = useState(0); // Offset for panning
+  const [isDragging, setIsDragging] = useState(false); // State to track dragging
 
   useEffect(() => {
     const fetchData = async () => {
@@ -65,6 +66,8 @@ const MultiLineChart = () => {
   }, []);
 
   const updateVisibleData = useCallback(() => {
+    if (data.length === 0) return;
+
     // Calculate visible data based on panOffset and zoomLevel
     const rangeStart = Math.max(0, Math.floor(panOffset / zoomLevel));
     const rangeEnd = Math.min(data[0]?.data.length, Math.ceil((panOffset + 1000) / zoomLevel)); // Adjust based on width of chart
@@ -83,7 +86,7 @@ const MultiLineChart = () => {
 
   const handlePan = (dx) => {
     setPanOffset(prevOffset => {
-      const newOffset = prevOffset + dx;
+      const newOffset = prevOffset - dx; // Inverse direction for panning
       updateVisibleData();
       return newOffset;
     });
@@ -97,11 +100,49 @@ const MultiLineChart = () => {
     });
   };
 
+  const handleWheel = (event) => {
+    event.preventDefault(); // Prevent default scroll behavior
+
+    // Determine zoom direction based on scroll direction
+    const zoomFactor = event.deltaY < 0 ? 1.2 : 0.8;
+    handleZoom(zoomFactor);
+  };
+
+  const handleMouseDown = () => {
+    setIsDragging(true);
+  };
+
+  const handleMouseMove = (event) => {
+    if (isDragging) {
+      const dx = event.movementX;
+      handlePan(dx);
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  useEffect(() => {
+    window.addEventListener('wheel', handleWheel);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
 
   return (
-    <div className="chart-container" style={{ height: '500px', width: '100%' }}>
+    <div
+      className="chart-container"
+      style={{ height: '500px', width: '100%' }}
+      onMouseDown={handleMouseDown} // Start dragging
+    >
       <ResponsiveLine
         data={visibleData}
         margin={{ top: 50, right: 110, bottom: 50, left: 60 }}
