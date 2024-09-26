@@ -63,7 +63,7 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     setAuthenticated(false);
-    navigate('/login');  // Redirect to login page after logout
+    //navigate('/login');  // Redirect to login page after logout
   };
 
   // Function to handle successful login and redirect to home page
@@ -110,7 +110,7 @@ function App() {
       ) : (
         <navigate to="/login" />  // Redirect to login if not authenticated
       )} />
-      <Route path="/login" element={<Login onLogin={handleLoginSuccess} />} />
+      {/* <Route path="/login" element={<Login onLogin={handleLoginSuccess} />} /> */}
     </Routes>
   );
 }
